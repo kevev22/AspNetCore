@@ -335,7 +335,7 @@ namespace Microsoft.AspNetCore.SignalR.Client
                 // Set this at the end to avoid setting internal state until the connection is real
                 _connectionState = startingConnectionState;
                 _invocationMessageChannel = Channel.CreateUnbounded<InvocationMessage>();
-                _invocationMessageReceiveTask = startProcessingInvocationMessages();
+                _invocationMessageReceiveTask = StartProcessingInvocationMessages();
                 _connectionState.ReceiveTask = ReceiveLoop(_connectionState);
 
                 Log.Started(_logger);
@@ -346,18 +346,16 @@ namespace Microsoft.AspNetCore.SignalR.Client
             }
         }
 
-        private async Task startProcessingInvocationMessages()
+        private async Task StartProcessingInvocationMessages()
         {
-            
             while (await _invocationMessageChannel.Reader.WaitToReadAsync())
             {
                 while (_invocationMessageChannel.Reader.TryRead(out var invocationMessage))
                 {
-                    DispatchInvocationAsync(invocationMessage);
+                    await DispatchInvocationAsync(invocationMessage);
                 }
             }
         }
-
 
         private Task CloseAsync(ConnectionContext connection)
         {
@@ -743,7 +741,7 @@ namespace Microsoft.AspNetCore.SignalR.Client
             return (close: false, exception: null);
         }
 
-        private void DispatchInvocationAsync(InvocationMessage invocation)
+        private async Task DispatchInvocationAsync(InvocationMessage invocation)
         {
             // Find the handler
             if (!_handlers.TryGetValue(invocation.Target, out var invocationHandlerList))
@@ -758,7 +756,7 @@ namespace Microsoft.AspNetCore.SignalR.Client
             {
                 try
                 {
-                    handler.InvokeAsync(invocation.Arguments);
+                    await handler.InvokeAsync(invocation.Arguments);
                 }
                 catch (Exception ex)
                 {
